@@ -186,9 +186,9 @@ class main_widget(QWidget):
         return vbox_widget
     
     def is_checked_state(self):
-        if self.checkbox_x.isChecked(): self.x_checkbox_state = True
-        if self.checkbox_y.isChecked(): self.y_checkbox_state = True
-        if self.checkbox_z.isChecked(): self.z_checkbox_state = True
+        self.x_checkbox_state = self.checkbox_x.isChecked()
+        self.y_checkbox_state = self.checkbox_y.isChecked()
+        self.z_checkbox_state = self.checkbox_z.isChecked()
 
 
     def plot_layout(self):
