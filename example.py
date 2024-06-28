@@ -27,6 +27,7 @@ UWB_DATA = "<info> app: "
 UWB_DATA_X = "x:"
 UWB_DATA_Y = "y:"
 UWB_DATA_Z = "z:"
+MAX_DATA_COUNT = 1000
 
 def print_debug(*args, **kwargs):
     current_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
@@ -77,12 +78,14 @@ class ACCGraph(QWidget):
             self.pdi_y.setData(y= self.y_data)
         if flag==2 and is_checked:
             self.pdi_z.setData(y= self.z_data)
+        if len(self.time_data) > MAX_DATA_COUNT:
+            self.time_data.pop(0)
 
     def clear_plot(self):
         self.x_data=[0]
         self.y_data=[0]
         self.z_data=[0]
-        self.time_data[0]
+        self.time_data=[0]
         self.pdi_x.setData(x=self.time_data, y= self.x_data)
         self.pdi_y.setData(x=self.time_data, y= self.y_data)
         self.pdi_z.setData(x=self.time_data, y= self.z_data)
@@ -298,7 +301,6 @@ class main_widget(QWidget):
         try:
             while self.serial.canReadLine():
                 data = self.serial.readLine().data().decode().strip()
-                print_debug(data)
                 self.get_data.append(data)
 
         except:
@@ -334,7 +336,6 @@ class main_widget(QWidget):
                     if match:
                         y_aixs= int(match.group(1))
                         flag=1
-                        print_debug(y_aixs)
                         self.UWB_ACC.update_plot(y_aixs,flag,self.y_checkbox_state)
 
                     match= re.search(r"%s(-?\d+)"%UWB_DATA_Z, data)
@@ -352,8 +353,8 @@ class main_widget(QWidget):
             print_debug("timer_uwb_connection_check")
             if self.uwb_status != UWB_STATE.Disconnected:
                 self.uwb_status = UWB_STATE.Disconnected
-                self.lb_status_text.setText("Disconnected")
-                self.lb_status_text.setStyleSheet("color: red")
+                self.lb2_uwb_status.setText("Disconnected")
+                self.lb2_uwb_status.setStyleSheet("color: red")
 
         except:
             print_debug("timer_uwb_connection_check error")
