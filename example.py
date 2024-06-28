@@ -37,6 +37,58 @@ def print_debug(*args, **kwargs):
     print(*args, **kwargs)
 
 
+class ACCGraph(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.time_data=[0]
+        self.x_data=[0]
+        self.y_data=[0]
+        self.z_data=[0]
+
+        self.graphWidget= pg.PlotWidget()
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.graphWidget)
+        self.setLayout(vbox)
+
+        self.graphWidget.showGrid(x=True, y=True)
+        self.graphWidget.setMouseEnabled(x=False, y=False)
+
+
+        self.pdi_x = self.graphWidget.plot(pen='r', name="X Data")
+        self.pdi_y = self.graphWidget.plot(pen='g', name="Y Data")
+        self.pdi_z = self.graphWidget.plot(pen='b', name="Z Data")
+      
+
+    
+    def update_plot(self, data, flag, is_checked):
+        self.time_data.append(self.time_data[-1]+1)
+        if flag==0:
+            self.x_data.append(data)
+        if flag==1:
+            self.y_data.append(data)
+        if flag==2:
+            self.z_data.append(data)
+
+
+        if flag==0 and is_checked:
+            self.pdi_x.setData(y= self.x_data)
+        if flag==1 and is_checked:
+            self.pdi_y.setData(y= self.y_data)
+        if flag==2 and is_checked:
+            self.pdi_z.setData(y= self.z_data)
+
+    def clear_plot(self):
+        self.x_data=[0]
+        self.y_data=[0]
+        self.z_data=[0]
+        self.time_data[0]
+        self.pdi_x.setData(x=self.time_data, y= self.x_data)
+        self.pdi_y.setData(x=self.time_data, y= self.y_data)
+        self.pdi_z.setData(x=self.time_data, y= self.z_data)
+
+
+        
 class main_widget(QWidget):
     def __init__(self,parent):
         super().__init__()
@@ -44,6 +96,10 @@ class main_widget(QWidget):
         self.serial = QSerialPort()
         self.get_data = []
         self.uwb_status = UWB_STATE.Disconnected
+
+        self.x_checkbox_state=False
+        self.y_checkbox_state=False
+        self.z_checkbox_state=False
 
         self.initUI()
         self.timer_data = QTimer()
@@ -103,12 +159,11 @@ class main_widget(QWidget):
         self.serial.readyRead.connect(self.read_data)
 
         lb_clear_plot = QLabel("Clear plot", self)
-        self.bt_clear_plot = QPushButton("Clear plot", self)
+        bt_clear_plot = QPushButton("Clear plot", self)
+        bt_clear_plot.clicked.connect(self.clear_plot)
 
         lb_uwb_status = QLabel("UWB Status",self)
         self.lb2_uwb_status = QLabel("Disconnected",self)
-
-        
 
         grid_layout.addWidget(lb_serial_scan,0,0)
         grid_layout.addWidget(self.bt_serial_scan,0,1)
@@ -117,7 +172,7 @@ class main_widget(QWidget):
         grid_layout.addWidget(lb_serial_conn,2,0)
         grid_layout.addWidget(self.bt_serial_conn,2,1)
         grid_layout.addWidget(lb_clear_plot,3,0)
-        grid_layout.addWidget(self.bt_clear_plot,3,1)
+        grid_layout.addWidget(bt_clear_plot,3,1)
         grid_layout.addWidget(lb_uwb_status,4,0)
         grid_layout.addWidget(self.lb2_uwb_status,4,1)
 
@@ -126,8 +181,15 @@ class main_widget(QWidget):
         vbox_widget.setSizePolicy(QSizePolicy.Minimum,QSizePolicy.Minimum)
         vbox_widget.setLayout(vbox)
         return vbox_widget
+    
+    def is_checked_state(self):
+        if self.checkbox_x.isChecked(): self.x_checkbox_state = True
+        if self.checkbox_y.isChecked(): self.y_checkbox_state = True
+        if self.checkbox_z.isChecked(): self.z_checkbox_state = True
+
 
     def plot_layout(self):
+
         plot_layout = QVBoxLayout()
         check_layout = QHBoxLayout()
         check_layout.setContentsMargins(0,0,0,0)
@@ -135,16 +197,19 @@ class main_widget(QWidget):
         self.checkbox_y = QCheckBox("y 축",self)
         self.checkbox_z = QCheckBox("z 축", self)
         check_layout.addWidget(self.checkbox_x)
+        self.checkbox_x.clicked.connect(self.is_checked_state)
         check_layout.addWidget(self.checkbox_y)
+        self.checkbox_y.clicked.connect(self.is_checked_state)
         check_layout.addWidget(self.checkbox_z)
+        self.checkbox_z.clicked.connect(self.is_checked_state)
         self.checkbox_x.setSizePolicy(QSizePolicy.Fixed,QSizePolicy.Expanding)
         self.checkbox_y.setSizePolicy(QSizePolicy.Fixed,QSizePolicy.Expanding)
         self.checkbox_z.setSizePolicy(QSizePolicy.Fixed,QSizePolicy.Expanding)
     
         
-        graphWidget= pg.PlotWidget()
+        self.UWB_ACC = ACCGraph()
         plot_layout.addLayout(check_layout)
-        plot_layout.addWidget(graphWidget)
+        plot_layout.addWidget(self.UWB_ACC)
 
         plot_layout_widget = QWidget()
         plot_layout_widget.setLayout(plot_layout)
@@ -249,6 +314,34 @@ class main_widget(QWidget):
                     if self.uwb_status!= UWB_STATE.Connected:
                         self.uwb_status = UWB_STATE.Connected
                         self.lb2_uwb_status.setText("Conntected")
+                        self.lb2_uwb_status.setStyleSheet("color: green")
+                    else:
+                        self.uwb_connection_check_timer.stop()
+                        self.uwb_connection_check_timer.start()
+
+                    x_aixs=None
+                    y_aixs=None
+                    z_aixs=None
+                    flag=0
+                    
+                    match= re.search(r"%s(-?\d+)"%UWB_DATA_X, data)
+                    if match:
+                        x_aixs = int(match.group(1))
+                        flag=0
+                        self.UWB_ACC.update_plot(x_aixs,flag,self.x_checkbox_state)
+                    
+                    match= re.search(r"%s(-?\d+)"%UWB_DATA_Y, data)
+                    if match:
+                        y_aixs= int(match.group(1))
+                        flag=1
+                        print_debug(y_aixs)
+                        self.UWB_ACC.update_plot(y_aixs,flag,self.y_checkbox_state)
+
+                    match= re.search(r"%s(-?\d+)"%UWB_DATA_Z, data)
+                    if match:
+                        z_aixs= int(match.group(1))
+                        flag=2
+                        self.UWB_ACC.update_plot(z_aixs,flag,self.z_checkbox_state)
 
 
         except:
@@ -257,8 +350,20 @@ class main_widget(QWidget):
     def timer_uwb_connection_check(self):
         try:
             print_debug("timer_uwb_connection_check")
+            if self.uwb_status != UWB_STATE.Disconnected:
+                self.uwb_status = UWB_STATE.Disconnected
+                self.lb_status_text.setText("Disconnected")
+                self.lb_status_text.setStyleSheet("color: red")
+
         except:
             print_debug("timer_uwb_connection_check error")
+
+    
+    def clear_plot(self):
+        try:
+            self.UWB_ACC.clear_plot()
+        except:
+            print_debug("clear_plot error")
 
 class main_window(QMainWindow):
     def __init__(self):
