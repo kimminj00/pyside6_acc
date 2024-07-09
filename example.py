@@ -29,6 +29,14 @@ UWB_DATA_Y = "y:"
 UWB_DATA_Z = "z:"
 MAX_DATA_COUNT = 1000
 
+if getattr(sys, 'frozen', False):
+   app_path = os.path.dirname(sys.executable)
+else:
+    app_path = os.path.dirname(__file__)
+
+log_file_name = os.path.join(app_path, "%s.txt"%(time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(time.time()))))
+data_file_name = os.path.join(app_path,'example_datas' , "%s.csv"%(time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(time.time()))))
+
 def print_debug(*args, **kwargs):
     current_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
     # with open(log_file_name , "a") as f:
@@ -36,6 +44,15 @@ def print_debug(*args, **kwargs):
     #     print(*args, **kwargs, file=f)
     print(current_time, end=' ')
     print(*args, **kwargs)
+
+def save_data(list_data, print_time=True):
+    current_time = time.strftime('%Y_%m_%d_%H:%M:%S', time.localtime(time.time()))
+    with open(data_file_name, "a", newline="") as f:
+        writer = csv.writer(f)
+        if print_time:
+            writer.writerow([current_time] + list_data)
+        else:
+            writer.writerow(list_data)
 
 
 class ACCGraph(QWidget):
@@ -93,9 +110,9 @@ class ACCGraph(QWidget):
 
         
 class main_widget(QWidget):
-    def __init__(self,parent):
+    def __init__(self):
         super().__init__()
-        self.parent = parent
+        #self.parent = parent
         self.serial = QSerialPort()
         self.get_data = []
         self.uwb_status = UWB_STATE.Disconnected
@@ -196,9 +213,9 @@ class main_widget(QWidget):
         plot_layout = QVBoxLayout()
         check_layout = QHBoxLayout()
         check_layout.setContentsMargins(0,0,0,0)
-        self.checkbox_x = QCheckBox("x 축",self)
-        self.checkbox_y = QCheckBox("y 축",self)
-        self.checkbox_z = QCheckBox("z 축", self)
+        self.checkbox_x = QCheckBox("x 축 (red)",self)
+        self.checkbox_y = QCheckBox("y 축 (green)",self)
+        self.checkbox_z = QCheckBox("z 축 (blue)", self)
         check_layout.addWidget(self.checkbox_x)
         self.checkbox_x.clicked.connect(self.is_checked_state)
         check_layout.addWidget(self.checkbox_y)
@@ -345,6 +362,9 @@ class main_widget(QWidget):
                         self.UWB_ACC.update_plot(z_aixs,flag,self.z_checkbox_state)
 
 
+                    save_data([x_aixs,y_aixs,z_aixs])
+
+
         except:
             print_debug("time_data_event error")
 
@@ -372,7 +392,7 @@ class main_window(QMainWindow):
         self.initUI()
     
     def initUI(self):
-        self.widget = main_widget(self)
+        self.widget = main_widget()
         self.setCentralWidget(self.widget)
         menu = self.menuBar()
         menu_main= menu.addMenu("Main")
@@ -389,6 +409,10 @@ class main_window(QMainWindow):
 
 
 if __name__ == "__main__":
+    if not os.path.exists(os.path.join(app_path,'example_datas')):
+        os.mkdir(os.path.join(app_path,'example_datas'))
+    save_data(["time","x_aixs", "y_aixs", "z_aixs"], False)
+
     app = QApplication(sys.argv)
     main_view = main_window()
     main_view.show()
